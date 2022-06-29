@@ -145,9 +145,6 @@ func DefaultRequest(req *FormRequest, headers []Headers) ([]byte, error) {
 	}
 
 	data, err := ProcessStatusCode(resp)
-	if err != nil {
-		return nil, err
-	}
 
-	return data, nil
+	return data, err
 }
