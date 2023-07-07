@@ -6,6 +6,7 @@ package httplib
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
@@ -17,19 +18,19 @@ import (
 // FormRequest contains basic fields needed for a HTTP request
 // it has a method of FormRequest which returns a *http.Request
 type FormRequest struct {
-	BaseURL  string
+	BaseURL string
 	Endpoint string
-	Payload  []byte
-	Method   string
+	Payload []byte
+	Method string
 }
 
 // DefaultClient provides a default client with 10s timeout
 func DefaultClient(req *http.Request) (*http.Response, error) {
 	c := NewClient{
-		Transport:     nil,
+		Transport: nil,
 		CheckRedirect: nil,
-		Jar:           nil,
-		Timeout:       10 * time.Second,
+		Jar: nil,
+		Timeout: 10 * time.Second,
 	}
 	return c.DoRequest(req)
 }
@@ -37,13 +38,13 @@ func DefaultClient(req *http.Request) (*http.Response, error) {
 // FormRequest creates a new HTTP request
 func (r FormRequest) FormRequest() (*http.Request, error) {
 	var (
-		URL    string
-		req    *http.Request
+		URL string
+		req *http.Request
 		reqErr error
 	)
 
 	URL = r.BaseURL + r.Endpoint
-	log.Debugf("URL: %s\n", URL)
+	log.Debugf("URL: %s", URL)
 
 	req, reqErr = http.NewRequest(r.Method, URL, bytes.NewBuffer(r.Payload))
 	if reqErr != nil {
@@ -57,7 +58,7 @@ func (r FormRequest) FormRequest() (*http.Request, error) {
 // call each time a header is needed to be set.
 // Used in method AddHeader()
 type Headers struct {
-	Key   string
+	Key string
 	Value string
 }
 
@@ -114,7 +115,7 @@ func ProcessStatusCode(r *http.Response) ([]byte, error) {
 			time.Sleep(60 * time.Second) // sleeping now for good measure
 			return nil, errors.New("rate limit exceed")
 		}
-		return body, errors.New("40X received; check request")
+		return body, errors.New(fmt.Sprintf("Response: %v, Error: %v, Request: %v", string(body), err, r.Request))
 
 	case strings.HasPrefix(r.Status, "5"):
 		return nil, errors.New("50X received; check network/service availability")
@@ -145,6 +146,9 @@ func DefaultRequest(req *FormRequest, headers []Headers) ([]byte, error) {
 	}
 
 	data, err := ProcessStatusCode(resp)
+	if err != nil {
+		return nil, err
+	}
 
-	return data, err
+	return data, nil
 }
