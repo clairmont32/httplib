@@ -7,30 +7,31 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // FormRequest contains basic fields needed for a HTTP request
 // it has a method of FormRequest which returns a *http.Request
 type FormRequest struct {
-	BaseURL string
+	BaseURL  string
 	Endpoint string
-	Payload []byte
-	Method string
+	Payload  []byte
+	Method   string
 }
 
 // DefaultClient provides a default client with 10s timeout
-func DefaultClient(req *http.Request) (*http.Response, error) {
+func DefaultClient(req *http.Request) (*http.Response, http.Header, error) {
 	c := NewClient{
-		Transport: nil,
+		Transport:     nil,
 		CheckRedirect: nil,
-		Jar: nil,
-		Timeout: 10 * time.Second,
+		Jar:           nil,
+		Timeout:       10 * time.Second,
 	}
 	return c.DoRequest(req)
 }
@@ -38,8 +39,8 @@ func DefaultClient(req *http.Request) (*http.Response, error) {
 // FormRequest creates a new HTTP request
 func (r FormRequest) FormRequest() (*http.Request, error) {
 	var (
-		URL string
-		req *http.Request
+		URL    string
+		req    *http.Request
 		reqErr error
 	)
 
@@ -58,7 +59,7 @@ func (r FormRequest) FormRequest() (*http.Request, error) {
 // call each time a header is needed to be set.
 // Used in method AddHeader()
 type Headers struct {
-	Key string
+	Key   string
 	Value string
 }
 
@@ -71,14 +72,14 @@ func (h Headers) AddHeader(req *http.Request) *http.Request {
 type NewClient http.Client
 
 // DoRequest performs the HTTP request and return the response
-func (c NewClient) DoRequest(req *http.Request) (*http.Response, error) {
+func (c NewClient) DoRequest(req *http.Request) (*http.Response, http.Header, error) {
 	client := http.Client{Transport: c.Transport, CheckRedirect: c.CheckRedirect, Jar: c.Jar, Timeout: c.Timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Errorln("Error performing HTTP request")
-		return nil, err
+		return nil, nil, err
 	}
-	return resp, nil
+	return resp, resp.Header, nil
 }
 
 // ReadRespBody reads and return HTTP response without a buffer. Larger requests should be processed with buffers
@@ -140,7 +141,7 @@ func DefaultRequest(req *FormRequest, headers []Headers) ([]byte, error) {
 		headers[i].AddHeader(r)
 	}
 
-	resp, err := DefaultClient(r)
+	resp, _, err := DefaultClient(r)
 	if err != nil {
 		return nil, err
 	}
